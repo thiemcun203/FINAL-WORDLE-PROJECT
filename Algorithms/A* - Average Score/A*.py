@@ -6,30 +6,36 @@ import json
 import numpy as np
 from math import *
 
-allowed_guesses=os.path.abspath('Data/allowed_guesses.txt')
-with open(allowed_guesses,'r') as file:
-    allowed_guesses=[]
-    for i in file:
-        allowed_guesses.append(i[:5])
+# open files to get data        
+with open(r'/Users/nguyenbathiem/Desktop/wordle-project/Wordle_solver/possible_answers.txt','r') as f:
+    possible_answers=list()
+    for line in f:
+        line=line.rstrip()
+        possible_answers.append(line)
+word_freq=os.path.abspath('Data/word_freq_ggdict.json')     
+with open(word_freq,'r') as f:
+    data=f.read()
+    WORD_FREQ=json.loads(data)
+
+allowed_guesses=WORD_FREQ.keys()
+
+
+def sigmoid(x):
+    return 1/(1+exp(-x))
+
+def get_frequency(words_freq, n_common=3000, width_under_sigmoid=10):
+    x_width = width_under_sigmoid
+    c = x_width * (-0.5 + n_common/len(words_freq))
+    xs = np.linspace(c - x_width/2, c + x_width/2, len(words_freq))
+    words_freq = {k:v for k,v in sorted(words_freq.items(), key=lambda x:x[1])}
+    priors=dict()
+    for (word,j) in zip(words_freq.keys(),xs):
+        priors[word]=sigmoid(j)
+    return priors
 freq_gg=os.path.abspath('Data/word_freq_ggdict.json')
 with open(freq_gg) as file:
     word_freq_ggdict=json.load(file)
-def sigmoid(x):
-    return 1/(1+e**(-x))
-CommonWord=3000
-def get_freq(word_freq_ggdict:list,CommonWord=CommonWord,Width=10) -> dict:
-    #make sorted word list by freq
-    lst=list(word_freq_ggdict.items())
-    lst.sort(key=lambda x: x[1])
-    
-    #add word into horizontal axis of sigmoid function
-    N=len(word_freq_ggdict)
-    metric = np.linspace(-Width*(N-CommonWord)/N,Width*CommonWord/N,N)
-    priors=dict()
-    for pair, unit in zip(lst,metric):
-        priors[pair[0]]=sigmoid(unit)
-    return priors
-frequency=get_freq(word_freq_ggdict)
+frequency=get_frequency(word_freq_ggdict)
 def entropy(guess:str, possible_answers:list):
     '''Function compute the entropy of each word which could be chosen in hard mode \n
     Return value of entropy(bits)'''
@@ -46,7 +52,6 @@ def entropy(guess:str, possible_answers:list):
     for prob in pd_patterns.values():
         Entropy+=-prob*log2(prob)
     return Entropy
-entropy('tares',allowed_guesses)
 
 def entropy_dict(possible_answers):
     '''Function compute entropy of each word in list
@@ -61,7 +66,7 @@ def entropy_dict(possible_answers):
 firstguesses_freq=os.path.abspath('Data/firstguesses_freq.json')
 def savefile():
     with open(firstguesses_freq,'w') as f:
-        json.dump(entropy_dict(allowed_guesses),f)
+        json.dump(entropy_dict(),f)
 #15m40.6s
 def openfile():
     with open(firstguesses_freq,'r') as f:
@@ -69,6 +74,139 @@ def openfile():
     return file
 
 fl=openfile()
+
+def solution_for_collect(answer:str,word_list=allowed_guesses,collect=False) -> list:
+    '''
+    Parameters
+    ----------
+    answer: Five-letter actual answer.
+    allowed_words: Contains ~13000 allowed guesses.
+    mode: One of the seven filters: {0}, {1}, {2}, {0,1}, {0,2}, {1,2}, {0,1,2}
+    --------
+    Return
+    -------
+    tupple of guess_count and actual_guesses_list
+    guesses_list: (list) list of guesses needed to reach the actual answer.
+    '''
+    guesses_list=[]
+    history=[]
+    word_list=allowed_guesses
+    pair=fl[0]
+    while True:
+        guess=pair[0]
+        history.append(pair)
+        guesses_list.append(guess)
+        feedback=get_feedback(guess,answer)
+        if check_win(feedback):
+            break
+        word_list=reduce_list(guess,feedback,word_list)
+        pair=entropy_dict(word_list)[0]
+    if not collect:
+        return history
+    return guesses_list
+# print(solution_for_collect('happy'))
+def entropy_of_space(space,word_freq=WORD_FREQ):
+    freq=get_frequency(word_freq)
+    distribution = {k:freq[k] for k in space}
+    dt = {k:v/sum(distribution.values()) for k,v in distribution.items()}
+    res=0
+    for i in dt.values():
+        res += -i*log2(i)
+    return float(round(res,2))
+
+def pattern_probability_distribution(allowed_words,guess):
+    """
+    Parameters
+    ----------
+    allowed_words : list
+        Contains allowed guesses.
+    guess : str
+        Five-letter guess.
+
+    Returns
+    -------
+    pd : dict
+        Contains the base 10 representation of a feedback pattern as the key.
+        Corresponding value is its probability of appearing in the guess space.
+
+    """
+
+    frequency=get_frequency(WORD_FREQ)
+    pd = dict()
+    for word in allowed_words:
+        feedback = get_feedback(guess,word)
+        feedback_enumerated = convert_ternary(feedback)
+        pd[feedback_enumerated] = pd.get(feedback_enumerated,0) + frequency[word]
+    pd = {k:v/sum(pd.values()) for k,v in pd.items()}
+    return pd
+
+
+def compute_actual_entropy(allowed_words,guess,real_feedback):
+    """
+    Parameters
+    ----------
+    allowed_words : list
+        Contains allowed guesses.
+    guess : str
+        Five-letter guess.
+    real_feedback : list
+        Contains 05 elements, which can be 0, 1, or 2, denoting a feedback pattern.
+
+    Returns
+    -------
+    updated_allowed_words : list
+        Updates allowed_words by retaining only words fitting the actual feedback.
+    """
+    temp=allowed_guesses
+    red=reduce_list(guess,real_feedback,allowed_guesses)
+    print(red)
+    return log2(len(temp)/len(red))
+print(reduce_list('tares',[1,2,0,0,1],allowed_guesses))
+def get_common_word_probability(space):
+    freq_map=get_frequency(WORD_FREQ)
+    dt = {k:freq_map[k] for k in space}
+    dt = {k:float(round(v/sum(dt.values()),5)) for k,v in dt.items()}
+    return dt
+
+#Upgraded version using score function
+
+# INITIAL=entropy_of_space(ALLOWED_WORDS)
+
+
+def collect_data(allowed_words,possible_words):
+    res=list()
+    for answer in possible_words:
+        res.append(solution_for_collect(answer))
+    return res
+
+# collect data code 
+def save():
+    link=os.path.abspath('Data/data.txt')
+    with open(link,'w') as f:
+        for game in collect_data(allowed_guesses,possible_answers):
+            f.write(str(game)+'\n')
+
+def f(x):
+    (w,b)=(0.2458,1.4614)
+    return w*x+b
+
+def score(allowed_words,guess,word,actual_fb,num_of_guesses):
+    H0 = entropy_of_space(allowed_words)
+    H1 = compute_actual_entropy(guess,actual_fb,allowed_words)
+    dt = get_common_word_probability(reduce_list(guess,actual_fb,allowed_words))
+    p = dt[word]
+    return p*num_of_guesses + (1-p)*(num_of_guesses + f(H0-H1))
+
+def score_ranker(allowed_words,actual_fb,guess,num_of_guesses):
+    space=reduce_list(guess,actual_fb,allowed_words)
+    res=dict()
+    for word in allowed_words:
+        print('cosjk')
+        res[word]=score(allowed_guesses,guess,word,actual_fb,num_of_guesses)
+    res = {k:v for k,v in sorted(res.items(),key=lambda x:x[1])}
+    return res
+print(score_ranker(allowed_guesses,[1,2,0,0,1],'tares',1))
+
 
 def solution_for_test(answer:str,word_list=allowed_guesses) -> list:
     '''
@@ -95,6 +233,29 @@ def solution_for_test(answer:str,word_list=allowed_guesses) -> list:
         guess=entropy_dict(word_list)[0][0]
     return guesses_list
 
+def solution_for_test(answer,allowed_words=allowed_guesses):
+    valid_words=allowed_words
+    win=False
+    i=guess_count=0
+    res=list()
+    while not win:
+        if i==0:
+            guess='tares'
+            guess_count+=1
+            res.append(guess)
+        else:
+            fb = get_feedback(guess,answer)
+            guess_count+=1
+            ranker=score_ranker(valid_words,fb,guess, guess_count+1)
+            guess=list(ranker.keys())[0]
+            res.append(guess)
+        real_fb=get_feedback(guess,answer)
+        if check_win(real_fb)==True:
+            break
+        valid_words=reduce_list(guess,real_fb,valid_words)
+        i+=1
+    return res
+
 def solution_for_WordleBot(allowed_guesses=allowed_guesses) ->list:
     '''
     This function will display the process of auto play of WordleBot
@@ -110,28 +271,33 @@ def solution_for_WordleBot(allowed_guesses=allowed_guesses) ->list:
     guess_board = [["_"]*5 for i in range(6)]
     feedback_board = [[None]*5 for i in range(6)]
     attempt_number = 0
-    ranker=fl[:10]
+    count_score=0
     while attempt_number <= 5:
-
+        
+        
         #print guess_board
         print("\n Guess #" + str(attempt_number+1))
         print("There are",len(still_valid_words),"left in the guess space.")
-        
-        if len(still_valid_words) > 10:
-            print("By picking first highest 10 words, these are some of the words in the guess space:")
-            if attempt_number >0:
-                ranker = entropy_dict(still_valid_words)[:10]
-              
-                        
-        else:
-            print("These are the words left in the guess space:")
-            ranker=entropy_dict(still_valid_words)
+        if attempt_number==0:
+            guess='tares'
+            real_feedback=get_feedback(guess,answer)
             
-        print(f'Word      Entropy')
-        for pair in ranker:
-            print(f'{pair[0]}     {pair[1]:.2f}')
-        #display guess
-        guess = ranker[0][0]
+        else:
+            if len(still_valid_words) > 10:
+                print("By picking first highest 10 words, these are some of the words in the guess space:")
+                if attempt_number >0:
+                    ranker = list(score_ranker(still_valid_words,real_feedback,guess,count_score+1)).items()[:10]
+                
+                            
+            else:
+                print("These are the words left in the guess space:")
+                ranker = list(score_ranker(still_valid_words,real_feedback,guess,count_score+1).items())
+            
+            print(f'Word      Score')
+            for pair in ranker:
+                print(f'{pair[0]}     {pair[1]:.2f}')
+            #display guess
+            guess = ranker[0][0]
         
         #update guess into guess_board
         guess_board.insert(attempt_number,list(guess))
@@ -146,15 +312,16 @@ def solution_for_WordleBot(allowed_guesses=allowed_guesses) ->list:
             break
         
         
-        temp=reduce_list(guess, real_feedback,still_valid_words)
-        pactual= len(temp)/len(still_valid_words)
-        actual_infor=-log2(pactual)
-        still_valid_words=temp
+        # temp=reduce_list(guess, real_feedback,still_valid_words)
+        # pactual= len(temp)/len(still_valid_words)
+        # actual_infor=-log2(pactual)
+        # still_valid_words=temp
         attempt_number += 1
         print('\n   WORDLE  ')
         print_guess_board(guess_board,feedback_board)
-        print(f'Actual amount of information received (in bits): {actual_infor:.2f}')
-        print(f'Remaining possibilities: {len(still_valid_words)}')
+        # print(f'Actual amount of information received (in bits): {actual_infor:.2f}')
+        # print(f'Remaining possibilities: {len(still_valid_words)}')
+
         input('Press "Enter" to WordleBot continue playing')
 
         
@@ -327,17 +494,14 @@ def solution_for_realgame()->None:
 
         
         sp=input('Enter "yes" if you need my support: ')
-        
-   
-    
 
 
 if __name__ == "__main__":
     
     # print(solution_for_test('hence'))
-    # solution_for_WordleBot()
+    solution_for_WordleBot()
     # solution_for_simulationgame()
-    solution_for_realgame()
+    # solution_for_realgame()
     
     # real_possible_answers=os.path.abspath('Data/real_possible_answers.txt')
     # with open(real_possible_answers,"r") as file:
@@ -346,11 +510,9 @@ if __name__ == "__main__":
     #         real_possible_answers.append(i[:5])
     # TestModel(solution_for_test,real_possible_answers)
 
-    
-    
-    
-    
-    
+
+
+
 
 
 
