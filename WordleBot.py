@@ -27,6 +27,6 @@ while ask.isdigit():
             elif algo=='2':
                 from Greedy_Entropy_with_word_frequency.Entropy_with_word_frequency_easymode import *
                 solution_for_WordleBot()
-            algo=(input('Choose algorithm to use:\n1.Random\n2/Letter Frequency\n3.Entropy\n4.Entropy + Word Frequency\nelse to change to other mode\n'))
+            algo=input('Choose algorithm to use:\n1.Entropy\n2.Entropy + Word Frequency\nelse to change to other mode\n')
     ask=(input("Do you want to play in hardmode (1) or normalmode (2)?(else to stop)\n"))
 

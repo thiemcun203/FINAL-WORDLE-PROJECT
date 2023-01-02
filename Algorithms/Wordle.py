@@ -229,7 +229,34 @@ def print_guess_board(guess_board,feedback_board):
         print('|')
     print('|___________|\n')
 
+def reduce_allowed_words(allowed_words,guess,real_feedback):
+    """
     
+
+    Parameters
+    ----------
+    allowed_words : list
+        Contains allowed guesses.
+    guess : str
+        Five-letter guess.
+    real_feedback : list
+        Contains 05 elements, which can be 0, 1, or 2, denoting a feedback pattern.
+
+    Returns
+    -------
+    updated_allowed_words : list
+        Updates allowed_words by retaining only words fitting the actual feedback.
+
+    """
+    real_feedback_enumerated = convert_ternary(real_feedback)
+    updated_allowed_words = list()
+    for word in allowed_words:
+        feedback_enumerated = convert_ternary(get_feedback(guess,word))
+        if feedback_enumerated == real_feedback_enumerated:
+            updated_allowed_words.append(word)
+    
+    return updated_allowed_words
+  
 
 
        

@@ -1,5 +1,4 @@
-import sys
-sys.path.append('Algorithms') #append parent folder, but small than main folder: FINAL WORDLE PROJECT
+ #append parent folder, but small than main folder: FINAL WORDLE PROJECT
 from Wordle import *
 import os
 import json

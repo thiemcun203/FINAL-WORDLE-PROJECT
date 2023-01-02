@@ -144,7 +144,7 @@ def solution_for_WordleBot(allowed_guesses=allowed_guesses) ->list:
                         
         else:
             print("These are the words left in the guess space:")
-            ranker=get_ranker(still_valid_words,letter_freq)
+            ranker=get_ranker(still_valid_words,letter_freq)[:10]
 
         print(f'Word      Score')
         for pair in ranker:
@@ -226,9 +226,9 @@ def solution_for_simulationgame() -> None:
                 
                 else:
                     print("These are the words left in the guess space:")
-                    ranker=get_ranker(still_valid_words,letter_freq)
+                    ranker=get_ranker(still_valid_words,letter_freq)[:10]
                 
-                print(f'Word      Entropy')
+                print(f'Word      Score')
                 for pair in ranker:
                     print(f'{pair[0]}     {pair[1]:.2f}')
                 
@@ -339,9 +339,9 @@ def solution_for_realgame()->None:
         
         else:
             print("These are the words left in the guess space:")
-            ranker=get_ranker(still_valid_words,letter_freq)
+            ranker=get_ranker(still_valid_words,letter_freq)[:10]
         
-        print(f'Word      Entropy')
+        print(f'Word      Score')
         for pair in ranker:
             print(f'{pair[0]}     {pair[1]:.2f}')
 
