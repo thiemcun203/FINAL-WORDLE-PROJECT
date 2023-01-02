@@ -3,6 +3,7 @@ sys.path.append('Algorithms') #append parent folder, but small than main folder:
 from Wordle import *
 import os
 import json
+import numpy as np
 from math import *
 
 allowed_guesses=os.path.abspath('Data/allowed_guesses.txt')
@@ -10,25 +11,42 @@ with open(allowed_guesses,'r') as file:
     allowed_guesses=[]
     for i in file:
         allowed_guesses.append(i[:5])
-        
-def entropy(guess:str, possible_answers:list) ->float:
+freq_gg=os.path.abspath('Data/word_freq_ggdict.json')
+with open(freq_gg) as file:
+    word_freq_ggdict=json.load(file)
+def sigmoid(x):
+    return 1/(1+e**(-x))
+CommonWord=3000
+def get_freq(word_freq_ggdict:list,CommonWord=CommonWord,Width=10) -> dict:
+    #make sorted word list by freq
+    lst=list(word_freq_ggdict.items())
+    lst.sort(key=lambda x: x[1])
+    
+    #add word into horizontal axis of sigmoid function
+    N=len(word_freq_ggdict)
+    metric = np.linspace(-Width*(N-CommonWord)/N,Width*CommonWord/N,N)
+    priors=dict()
+    for pair, unit in zip(lst,metric):
+        priors[pair[0]]=sigmoid(unit)
+    return priors
+frequency=get_freq(word_freq_ggdict)
+def entropy(guess:str, possible_answers:list):
     '''Function compute the entropy of each word which could be chosen in hard mode \n
-    Return value of entropy(bits), dictionary has key= pattern and value= reduced possible answers list \n  
-    Detail: It computes expected value of probability distribution of possible patterns, \n 
-    based on possible answer(reduced list) or allowed list at initial \n
-    pattern=guess + word in possible answers \n
-    p= number of specific pattern / total patterns of word_list'''
+    Return value of entropy(bits)'''
     Entropy=0
-    total = len(possible_answers) 
-    PD_patterns = {} #probability distribution of patterns
+    pd_patterns = {} 
+    total_freq=0
+    # words_of_pattern={}
+    for word in possible_answers:
+        total_freq+=frequency[word]
     for word in possible_answers: 
-        feedback = get_feedback(guess,word)
-        fb=convert_ternary(feedback)
-        PD_patterns[fb]=PD_patterns.get(fb,0)+1/total
-    for prob in PD_patterns.values():
-        Entropy+=-(prob)*(log(prob)/log(2))
+        feedback = convert_ternary(get_feedback(guess,word))
+        # words_of_pattern[feedback]=words_of_pattern.get(feedback,[])+[word]
+        pd_patterns[feedback] = pd_patterns.get(feedback,0) +frequency[word]/total_freq
+    for prob in pd_patterns.values():
+        Entropy+=-prob*log2(prob)
     return Entropy
-entropy('soare',allowed_guesses)
+entropy('tares',allowed_guesses)
 
 def entropy_dict(possible_answers):
     '''Function compute entropy of each word in list
@@ -40,15 +58,16 @@ def entropy_dict(possible_answers):
     ranker.sort(key = lambda t: t[1], reverse = True)
     return ranker
 
+firstguesses_freq=os.path.abspath('Data/firstguesses_freq.json')
 def savefile():
-    firstguess=os.path.abspath('Data/firstguesses entropy HM.json')
-    with open(firstguess,'w') as f:
+    with open(firstguesses_freq,'w') as f:
         json.dump(entropy_dict(allowed_guesses),f)
+#15m40.6s
 def openfile():
-    firstguess=os.path.abspath('Data/firstguesses entropy HM.json')
-    with open(firstguess,'r') as f:
+    with open(firstguesses_freq,'r') as f:
         file=json.load(f)
     return file
+
 fl=openfile()
 
 def solution_for_test(answer:str,word_list=allowed_guesses) -> list:

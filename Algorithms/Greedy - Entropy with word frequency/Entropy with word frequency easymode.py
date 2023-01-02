@@ -3,6 +3,7 @@ sys.path.append('Algorithms') #append parent folder, but small than main folder:
 from Wordle import *
 import os
 import json
+import numpy as np
 from math import *
 
 allowed_guesses=os.path.abspath('Data/allowed_guesses.txt')
@@ -10,45 +11,61 @@ with open(allowed_guesses,'r') as file:
     allowed_guesses=[]
     for i in file:
         allowed_guesses.append(i[:5])
-        
+freq_gg=os.path.abspath('Data/word_freq_ggdict.json')
+with open(freq_gg) as file:
+    word_freq_ggdict=json.load(file)
+    
+def sigmoid(x)->float:
+    return 1/(1+e**(-x))
+
+CommonWord=3000
+def get_freq(word_freq_ggdict:list,CommonWord=CommonWord,Width=10) -> dict:
+    #make sorted word list by freq
+    lst=list(word_freq_ggdict.items())
+    lst.sort(key=lambda x: x[1])
+    
+    #add word into horizontal axis of sigmoid function
+    N=len(word_freq_ggdict)
+    metric = np.linspace(-Width*(N-CommonWord)/N,Width*CommonWord/N,N)
+    priors=dict()
+    for pair, unit in zip(lst,metric):
+        priors[pair[0]]=sigmoid(unit)
+    return priors
+
+frequency=get_freq(word_freq_ggdict)
 def entropy(guess:str, possible_answers:list) ->float:
     '''Function compute the entropy of each word which could be chosen in hard mode \n
-    Return value of entropy(bits), dictionary has key= pattern and value= reduced possible answers list \n  
-    Detail: It computes expected value of probability distribution of possible patterns, \n 
-    based on possible answer(reduced list) or allowed list at initial \n
-    pattern=guess + word in possible answers \n
-    p= number of specific pattern / total patterns of word_list'''
+    Return value of entropy(bits)'''
     Entropy=0
-    total = len(possible_answers) 
-    PD_patterns = {} #probability distribution of patterns
+    pd_patterns = {} 
+    total_freq=0
+    for word in possible_answers:
+        total_freq+=frequency[word]
     for word in possible_answers: 
-        feedback = get_feedback(guess,word)
-        fb=convert_ternary(feedback)
-        PD_patterns[fb]=PD_patterns.get(fb,0)+1/total
-    for prob in PD_patterns.values():
-        Entropy+=-(prob)*(log(prob)/log(2))
+        feedback = convert_ternary(get_feedback(guess,word))
+        pd_patterns[feedback] = pd_patterns.get(feedback,0) +frequency[word]/total_freq
+    for prob in pd_patterns.values():
+        Entropy+=-prob*log2(prob)
     return Entropy
-entropy('soare',allowed_guesses)
 
-def entropy_dict(possible_answers):
-    '''Function compute entropy of each word in list
-    Return the rank of possible answer (result of entropy function) based value of entropy
-    It may take less then 10 mins to compute for the first list - first guess'''
+def entropy_dict(allowed_guesses:list,possible_answers:list) ->tuple:
     ranker=[]
-    for guess in possible_answers:
-        ranker.append((guess,entropy(guess,possible_answers)))
-    ranker.sort(key = lambda t: t[1], reverse = True)
+    for guess in allowed_guesses:
+        pair=(guess,entropy(guess,possible_answers))
+        ranker.append(pair)
+    ranker.sort(key=lambda x: x[1], reverse=True)
     return ranker
 
+firstguesses_freq=os.path.abspath('Data/firstguesses_freq.json')
 def savefile():
-    firstguess=os.path.abspath('Data/firstguesses entropy HM.json')
-    with open(firstguess,'w') as f:
-        json.dump(entropy_dict(allowed_guesses),f)
+    with open(firstguesses_freq,'w') as f:
+        json.dump(entropy_dict(allowed_guesses,allowed_guesses),f)
+#15m40.6s
 def openfile():
-    firstguess=os.path.abspath('Data/firstguesses entropy HM.json')
-    with open(firstguess,'r') as f:
+    with open(firstguesses_freq,'r') as f:
         file=json.load(f)
     return file
+
 fl=openfile()
 
 def solution_for_test(answer:str,word_list=allowed_guesses) -> list:
@@ -73,7 +90,10 @@ def solution_for_test(answer:str,word_list=allowed_guesses) -> list:
         if check_win(feedback):
             break
         word_list=reduce_list(guess,feedback,word_list)
-        guess=entropy_dict(word_list)[0][0]
+        if len(word_list)==1:
+            guess=word_list[0]
+        else:
+            guess=entropy_dict(allowed_guesses,word_list)[0][0]
     return guesses_list
 
 def solution_for_WordleBot(allowed_guesses=allowed_guesses) ->list:
@@ -92,27 +112,39 @@ def solution_for_WordleBot(allowed_guesses=allowed_guesses) ->list:
     feedback_board = [[None]*5 for i in range(6)]
     attempt_number = 0
     ranker=fl[:10]
-    while attempt_number <= 5:
-
+    guess=ranker[0][0]
+    while attempt_number  <= 5:
+        N=len(still_valid_words)
         #print guess_board
         print("\n Guess #" + str(attempt_number+1))
-        print("There are",len(still_valid_words),"left in the guess space.")
+        print("There are",N,"left in the possible answers.")
         
-        if len(still_valid_words) > 10:
-            print("By picking first highest 10 words, these are some of the words in the guess space:")
+        if N > 10:
+            print("By picking first highest 10 words, these are some of the words in the possible answers:")
             if attempt_number >0:
-                ranker = entropy_dict(still_valid_words)[:10]
-              
+                ranker = entropy_dict(allowed_guesses,still_valid_words)[:10]
+                guess = ranker[0][0]   
                         
         else:
-            print("These are the words left in the guess space:")
-            ranker=entropy_dict(still_valid_words)
+            print("These are the words left in the possible answers:")
             
-        print(f'Word      Entropy')
-        for pair in ranker:
-            print(f'{pair[0]}     {pair[1]:.2f}')
-        #display guess
-        guess = ranker[0][0]
+            if N>1:    
+                ranker=entropy_dict(allowed_guesses,still_valid_words)
+                guess = ranker[0][0]
+            if N==1:
+                ranker=(still_valid_words[0],0.000)
+                guess=still_valid_words[0]
+                # #update guess into guess_board
+                # guess_board.insert(attempt_number,list(guess))
+                # del guess_board[-1]
+
+                # #update feedback into feedback_board
+                # real_feedback = get_feedback(guess,answer)
+                # feedback_board.insert(attempt_number,real_feedback)
+                # del feedback_board[-1]
+                
+
+
         
         #update guess into guess_board
         guess_board.insert(attempt_number,list(guess))
@@ -122,11 +154,12 @@ def solution_for_WordleBot(allowed_guesses=allowed_guesses) ->list:
         real_feedback = get_feedback(guess,answer)
         feedback_board.insert(attempt_number,real_feedback)
         del feedback_board[-1]
-
+        
         if check_win(real_feedback) == True:
             break
-        
-        
+        print(f'Word      Entropy')
+        for pair in ranker:
+            print('{}     {:.2f}'.format(pair[0],pair[1]))   
         temp=reduce_list(guess, real_feedback,still_valid_words)
         pactual= len(temp)/len(still_valid_words)
         actual_infor=-log2(pactual)
@@ -137,15 +170,18 @@ def solution_for_WordleBot(allowed_guesses=allowed_guesses) ->list:
         print(f'Actual amount of information received (in bits): {actual_infor:.2f}')
         print(f'Remaining possibilities: {len(still_valid_words)}')
         input('Press "Enter" to WordleBot continue playing')
-
         
+    print(f'Word      Entropy')
+    print(f'{guess}     {0.00}')     
     print('\n   WORDLE  ')
     print_guess_board(guess_board,feedback_board)
+    print(f'Actual amount of information received (in bits): {0.00}')
+    print(f'Remaining possibilities: {0}')
+
     if check_win(real_feedback):
         print('Congratulation!!')
     else:
         print("Sorry, I'm trying to be better")
-    
     
 def solution_for_simulationgame() -> None:
     '''
@@ -178,20 +214,28 @@ def solution_for_simulationgame() -> None:
             #support
             if guess =='yes':
                 change=1
-                print("There are",len(still_valid_words),"left in the guess space.")
+                print("There are",len(still_valid_words),"left in the possible answers.")
                 
                 if len(still_valid_words) > 10:
-                    print("By picking first highest 10 words, these are some of the words in the guess space:")
+                    print("By picking first highest 10 words, these are some of the words in the possible answers:")
                     if attempt_number >0:
-                        ranker = entropy_dict(still_valid_words)[:10]
-                
+                        ranker = entropy_dict(allowed_guesses,still_valid_words)[:10]
+                    print(f'Word      Entropy')
+                    for pair in ranker:
+                        print(f'{pair[0]}     {pair[1]:.2f}')
                 else:
-                    print("These are the words left in the guess space:")
-                    ranker=entropy_dict(still_valid_words)
-                
-                print(f'Word      Entropy')
-                for pair in ranker:
-                    print(f'{pair[0]}     {pair[1]:.2f}')
+                    if 10>=len(still_valid_words)>1:
+                        print("These are the words left in the possible answers:")
+                        #because easy mode use alot word
+                        ranker=entropy_dict(allowed_guesses,still_valid_words)[:10]
+                        print(f'Word      Entropy')
+                        for pair in ranker:
+                            print(f'{pair[0]}     {pair[1]:.2f}')
+                    elif len(still_valid_words)==1:
+                        guess=still_valid_words[0]
+                        print("These is a word left in the possible answers:")
+                        print(f'Word      Entropy')
+                        print(f'{guess}     {0.00}')
                 
                         
                 #official guess input
@@ -227,10 +271,16 @@ def solution_for_simulationgame() -> None:
     
     print('\n   WORDLE  ')
     print_guess_board(guess_board,feedback_board)
+    print(f'Actual amount of information received (in bits): {actual_infor:.2f}')
+    print(f'Remaining possibilities: {len(still_valid_words)}')
     if check_win(real_feedback):
         print('Congratulation!!')
     else:
         print('Game over')
+
+       
+    
+
         
 def solution_for_realgame()->None:
     '''
@@ -292,19 +342,29 @@ def solution_for_realgame()->None:
         #print suggestion    
         print('\n   WORDLE  ')
         print_guess_board(guess_board,feedback_board)
-        print("There are",len(still_valid_words),"left in the guess space.")
+        print("There are",len(still_valid_words),"left in the possible answers.")
         if len(still_valid_words) > 10:
-            print("By picking first highest 10 words, these are some of the words in the guess space:")
+            print("By picking first highest 10 words, these are some of the words in the possible answers:")
             if attempt_number >0:
-                ranker = entropy_dict(still_valid_words)[:10]
-        
+                ranker = entropy_dict(allowed_guesses,still_valid_words)[:10]
+            print(f'Word      Entropy')
+            for pair in ranker:
+                print(f'{pair[0]}     {pair[1]:.2f}')
         else:
-            print("These are the words left in the guess space:")
-            ranker=entropy_dict(still_valid_words)
+            if 10>=len(still_valid_words)>1:
+                print("These are the words left in the possible answers:")
+                #because easy mode use alot word
+                ranker=entropy_dict(allowed_guesses,still_valid_words)[:10]
+                print(f'Word      Entropy')
+                for pair in ranker:
+                    print(f'{pair[0]}     {pair[1]:.2f}')
+            elif len(still_valid_words)==1:
+                guess=still_valid_words[0]
+                print("These is a word left in the possible answers:")
+                print(f'Word      Entropy')
+                print(f'{guess}     {0.00}')
         
-        print(f'Word      Entropy')
-        for pair in ranker:
-            print(f'{pair[0]}     {pair[1]:.2f}')
+
 
         
         sp=input('Enter "yes" if you need my support: ')
@@ -315,9 +375,9 @@ def solution_for_realgame()->None:
 
 if __name__ == "__main__":
     
-    # print(solution_for_test('hence'))
-    solution_for_WordleBot()
-    solution_for_simulationgame()
+    # print(solution_for_test('means'))
+    # solution_for_WordleBot()
+    # solution_for_simulationgame()
     solution_for_realgame()
     
     # real_possible_answers=os.path.abspath('Data/real_possible_answers.txt')
