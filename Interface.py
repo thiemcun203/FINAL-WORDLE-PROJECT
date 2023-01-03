@@ -5,4 +5,3 @@ while Ask.isdigit():
     if Ask=='2':
         import Gamewithsupport
     Ask=input('Choose interface mode:\n1.WordleBot\n2.Game with support\nElse to stop\n')
-       

@@ -5,6 +5,9 @@ import os
 import json
 import numpy as np
 from math import *
+#algorithm use property of hardmode but it both accepts word in normal or hard in game simulation and game online
+#this version is different from others
+
 
 #open files to get data        
 with open(r'/Users/nguyenbathiem/Desktop/wordle-project/Wordle_solver/possible_answers.txt','r') as f:
@@ -38,57 +41,11 @@ def get_frequency(words_freq, n_common=3000, width_under_sigmoid=10):
 def get_common_word_probability(space):
     freq_map=get_frequency(WORD_FREQ)
     dt = {k:freq_map[k] for k in space}
-    dt = {k:float(round(v/sum(dt.values()),5)) for k,v in dt.items()}
+    dt = {k:v/sum(dt.values()) for k,v in dt.items()}
     return dt
-print(get_common_word_probability(ALLOWED_WORDS)['aahed'])
+# print(get_common_word_probability(ALLOWED_WORDS)['aahed'])
 
-def convert_ternary(t):
-    return sum([t[i]*3**(4-i) for i in range(5)])
 
-def get_feedback(guess,answer):
-    """
-    
-
-    Parameters
-    ----------
-    guess : str
-        Five-letter guess.
-    answer : str
-        Five-letter correct answer.
-
-    Returns
-    -------
-    feedback : list
-        Contains 05 elements, which can be 0, 1, or 2, denoting a feedback pattern.
-
-    """
-    #convert string to list
-    temp = list(answer)
-    answer = temp
-    temp = list(guess)
-    guess = temp
-    
-    #initialize
-    feedback = ['']*5
-    
-    #isolate correctly placed letters
-    for i in range(5):
-        if guess[i] == answer[i]:
-            feedback[i] = 2
-            answer[i] = ''
-            guess[i] = ''
-    
-    #isolate wrongly placed letters
-    for i in range(5):
-        if guess[i] == '': continue
-        elif guess[i] in answer:
-            feedback[i] = 1
-            answer[answer.index(guess[i])] = ''
-            guess[i] = ''
-        else:
-            feedback[i] = 0
-    
-    return feedback
 
 def pattern_probability_distribution(allowed_words,guess):
     """
@@ -141,51 +98,8 @@ def entropy_ranker(allowed_words):
     res={k:v for k,v in sorted(res.items(),key=lambda x:x[1],reverse=True)}
     return res
 
-def reduce_allowed_words(allowed_words,guess,real_feedback):
-    """
-    
 
-    Parameters
-    ----------
-    allowed_words : list
-        Contains allowed guesses.
-    guess : str
-        Five-letter guess.
-    real_feedback : list
-        Contains 05 elements, which can be 0, 1, or 2, denoting a feedback pattern.
 
-    Returns
-    -------
-    updated_allowed_words : list
-        Updates allowed_words by retaining only words fitting the actual feedback.
-
-    """
-    real_feedback_enumerated = convert_ternary(real_feedback)
-    updated_allowed_words = list()
-    for word in allowed_words:
-        feedback_enumerated = convert_ternary(get_feedback(guess,word))
-        if feedback_enumerated == real_feedback_enumerated:
-            updated_allowed_words.append(word)
-    
-    return updated_allowed_words
-
-def display_ranker(allowed_words):
-    """
-    Parameters
-    ----------
-    allowed_words : list
-        Contains allowed guesses.
-
-    Returns
-    -------
-    None.
-    Prints the ranker.
-
-    """
-    ranker = tuple(entropy_ranker(allowed_words).items())
-    print('{0:<10}{1:<10}'.format('Word','Expected entropy'))
-    for (word,entropy) in ranker[:10]: #print only top ten words with highest entropy
-        print('{0:<10}{1:<10.2f}'.format(word,entropy))
 
 def compute_actual_entropy(allowed_words,guess,real_feedback):
     """
@@ -229,43 +143,7 @@ def check_win(feedback):
             break
     return win
 
-def wordlebot_interface(allowed_words):
-    """
-    
 
-    Parameters
-    ----------
-    allowed_words : list
-        Contains allowed guesses.
-    Returns
-    -------
-    None.
-    Prints the interactive program for user to play Wordle and input real feedback.
-    """
-    win = False
-    valid_words = allowed_words
-    i = 0
-    while not win:
-        print("Guess #" + str(i+1))
-        if i == 0: 
-            pass #skip entropy computation for first guess - dev purpose
-        else:
-            display_ranker(valid_words)
-        guess = input('> Enter your guess: ')
-        real_feedback = list(map(int,input('>> Enter the feedback: ').split(' ')))
-        
-        
-        if check_win(real_feedback) == True:
-            print(">>> Complete!")
-            break
-        print(">>> Expected entropy: " + str(entropy(guess,valid_words)))
-        print("    Actual entropy: " + str(compute_actual_entropy(valid_words,guess,real_feedback)))
-        
-        temp = reduce_allowed_words(valid_words,guess,real_feedback)
-        valid_words = temp
-        print(">>>> Remaining possibilities: " + str(len(valid_words)) + "\n")
-        
-        i += 1
 
 #Upgraded version using score function
 INITIAL=entropy_of_space(ALLOWED_WORDS)
@@ -362,8 +240,6 @@ def solution_for_WordleBot(allowed_guesses=ALLOWED_WORDS) ->list:
     attempt_number = 0
     count_score=0
     while attempt_number <= 5:
-        
-        
         #print guess_board
         print("\n Guess #" + str(attempt_number+1))
         print("There are",len(still_valid_words),"left in the guess space.")
@@ -376,12 +252,11 @@ def solution_for_WordleBot(allowed_guesses=ALLOWED_WORDS) ->list:
                 print("By picking first highest 10 words, these are some of the words in the guess space:")
                 if attempt_number >0:
                     ranker = list(score_ranker(still_valid_words,real_feedback,guess,count_score+1).items())[:10]
-                
-                            
+
             else:
                 print("These are the words left in the guess space:")
-                ranker = list(score_ranker(still_valid_words,real_feedback,guess,count_score+1).items())
-            
+                ranker = list(score_ranker(still_valid_words,real_feedback,guess,count_score+1).items())[:10]
+
             print(f'Word      Score')
             for pair in ranker:
                 print(f'{pair[0]}     {pair[1]:.2f}')
@@ -399,81 +274,222 @@ def solution_for_WordleBot(allowed_guesses=ALLOWED_WORDS) ->list:
 
         if check_win(real_feedback) == True:
             break
-        
+        # temp=still_valid_words
+        # still_valid_words=reduce_list(guess, real_feedback,still_valid_words)
         
         temp=reduce_list(guess, real_feedback,still_valid_words)
         pactual= len(temp)/len(still_valid_words)
         actual_infor=-log2(pactual)
         still_valid_words=temp
         attempt_number += 1
+        count_score+=1
         print('\n   WORDLE  ')
         print_guess_board(guess_board,feedback_board)
-        print(f'Actual amount of information received (in bits): {actual_infor:.2f}')
-        # print(f'Remaining possibilities: {len(still_valid_words)}')
+        # print(f'Actual amount of information received (in bits): {actual_infor:.2f}')
+        print(f'Remaining possibilities: {len(still_valid_words)}')
 
         input('Press "Enter" to WordleBot continue playing')
 
-        
+
     print('\n   WORDLE  ')
     print_guess_board(guess_board,feedback_board)
     if check_win(real_feedback):
         print('Congratulation!!')
     else:
         print("Sorry, I'm trying to be better")
-solution_for_WordleBot()
-def display_score_ranker(allowed_words,actual_fb,guess,num_of_guesses):
-    """
+# a=reduce_allowed_words(ALLOWED_WORDS,'tares',[0,1,2,1,0])
+# print(len(a))
+# print(len(reduce_allowed_words(a,'tares',[0,1,2,1,0])))
+# solution_for_WordleBot()
+
+def solution_for_simulationgame() -> None:
+    '''
+    This function simulates the real game for user easly play and use our word suggestion functionality
     
-
-    Parameters
-    ----------
-    allowed_words : list
-        Contains allowed guesses.
-
-    Returns
     -------
-    None.
-    Prints the ranker.
-
-    """
-    ranker = tuple(score_ranker(allowed_words,actual_fb,guess,num_of_guesses).items())
-    print('{0:<10}{1:<10}'.format('Word','Expected score'))
-    for (word,score) in ranker[:10]: #print only top ten words with highest entropy
-        print('{0:<10}{1}'.format(word,score))
-
-def wordlebot_byscore_interface(allowed_words):
-    """
+    Player try to guess to reach answer like the real game by enter their guess as usual
+    If they need suggested word: Enter "yes" then choose their own guess for the next step from list of suggested word
+    '''
+    real_possible_answers=os.path.abspath('Data/real_possible_answers.txt')
+    with open(real_possible_answers,"r") as file:
+        real_possible_answers=[]
+        for i in file:
+            real_possible_answers.append(i[:5])
     
-
-    Parameters
-    ----------
-    allowed_words : list
-        Contains allowed guesses.
-
-    Returns
-    -------
-    None.
-    Prints the interactive program for user to play Wordle and input real feedback.
-
-    """
-    win = False
-    valid_words = allowed_words
-    i = 0
+    answer = random.choice(POSSIBLE_ANSWERS)
+    still_valid_words = ALLOWED_WORDS
+    guess_board = [["_"]*5 for i in range(6)]
+    feedback_board = [[None]*5 for i in range(6)]
+    attempt_number = 0
     
-    while not win:
-        print("Guess #" + str(i+1))
-        guess = input('> Enter your guess: ')
-        real_feedback = list(map(int,input('>> Enter the feedback: ').split(' ')))
+    #print guess_board
+    print('\n   WORDLE  ')
+    print_guess_board(guess_board,feedback_board)
+    count_score=0
+    
+    while attempt_number <= 5:
+        change=0
+        guess=input(f'Enter your {attempt_number+1}th guess\n(Enter "yes" if you need my support): ').lower()
+        while guess not in ALLOWED_WORDS:
+            #support
+            if guess =='yes':
+                change=1
+                print("There are",len(still_valid_words),"left in the guess space.")
+                
+                if attempt_number==0:
+                    
+                    print('tares')
+                
+                else:
+                    if len(still_valid_words) > 10:
+                        print("By picking first highest 10 words, these are some of the words in the guess space:")
+                        # print(len(temp),real_feedback,guess,count_score+1)
+                        ranker = list(score_ranker(still_valid_words,real_feedback,temp_guess,count_score+1).items())[:10]
+                        
+                                    
+                    else:
+                        
+                        print("These are the words left in the guess space:")
+                        ranker = list(score_ranker(still_valid_words,real_feedback,temp_guess,count_score+1).items())[:10]
+                        
+                    print(f'Word      Score')
+                    for pair in ranker:
+                        print(f'{pair[0]}     {pair[1]:.2f}')
+                
+                        
+                #official guess input
+                guess=input(f'Enter your {attempt_number+1}th guess: ').lower()
+                
+            else:
+                guess=input('Not a valid word - Please try again: ').lower()
+
+        temp_guess=guess
+        #update guess into guess_board    
+        guess_board.insert(attempt_number,list(guess))
+        del guess_board[-1]
         
+        #update feedback into feedback_board
+        real_feedback = get_feedback(guess,answer)
+        feedback_board.insert(attempt_number,real_feedback)
+        del feedback_board[-1]
+    
         if check_win(real_feedback) == True:
-            print(">>> Complete!")
             break
+        still_valid_words=reduce_list(guess, real_feedback,still_valid_words)
+        # pactual= len(temp)/len(still_valid_words)
+        # actual_infor=-log2(pactual)
+        # still_valid_words=temp
+        attempt_number += 1
+        count_score+=1
+        print('\n   WORDLE  ')
+        print_guess_board(guess_board,feedback_board)
+        if change==1:
+            # print(f'Actual amount of information received (in bits): {actual_infor:.2f}')
+            print(f'Remaining possibilities: {len(still_valid_words)}')
+    
+    print('\n   WORDLE  ')
+    print_guess_board(guess_board,feedback_board)
+    if check_win(real_feedback):
+        print('Congratulation!!')
+    else:
+        print('Game over')
+# solution_for_simulationgame()    
+
+def solution_for_realgame()->None:
+    '''
+    This function help gamers have guess for the next step by enter your guesses and feedback
+    
+    ----------
+    Enter "yes" if you need support
+    
+    ------
+    When you choose press 'Enter' \n
+    Then enter all guess you entered into real game and all corresponding feedback recieved from the real game
+    Ex. guess: "tares" and feedback: "00210" (0: grey, 1: yellow, 2: green)
+    ------
+    When you choose enter '.' \n
+    This function will return some suggested word for you to continue playing on real game
+    
+    -------
+    If you still need suggested word for the next step then Enter '.'
+    
+    --------
+    You dont need to retype all word typed before
+    When you reach your answer or lose please enter something not 'yes' to end program
+    '''
+    still_valid_words = ALLOWED_WORDS
+    guess_board = [["_"]*5 for i in range(6)]
+    feedback_board = [[None]*5 for i in range(6)]
+    attempt_number = 0
+    count_score=0
+    sp=input('Enter "yes" if you need my support: ')
+    
+    # collect inputted then reduce guess space
+    while sp=='yes':
+        print('\n   WORDLE  ')
+        print_guess_board(guess_board,feedback_board)
+        print('Enter your guesses and feedback on real game')
+        mm=input('(Press "Enter" to continue add more guesses or Enter "." to suggest):  ')
+        while mm!=".":
+            guess = input('guess: ').lower()
+            while guess not in ALLOWED_WORDS:
+                guess=input('Not a valid word - Please try again: ').lower()
+            feedback=input('Feedback: ')
+            while len(feedback) !=5:
+                feedback=input('Not a valid feedback - Please try again: ')
+
+            #update guess into guess_board  
+            guess_board.insert(attempt_number,list(guess))
+            del guess_board[-1]
+            
+            #update feedback into feedback_board
+            real_feedback = [int(i) for i in str(feedback)]
+            feedback_board.insert(attempt_number,real_feedback)
+            del feedback_board[-1]
+
+  
+            temp = reduce_list(guess,real_feedback,still_valid_words)
+            still_valid_words = temp
+            mm=input('(Press "Enter" to continue or Enter "." to suggest):  ')
+            attempt_number+=1
+        #print suggestion    
+        print('\n   WORDLE  ')
+        print_guess_board(guess_board,feedback_board)
+        print("There are",len(still_valid_words),"left in the guess space.")
+        if attempt_number==0:
+            print('tares')
+        else:
+            if len(still_valid_words) > 10:
+                print("By picking first highest 10 words, these are some of the words in the guess space:")
+                # print(len(temp),real_feedback,guess,count_score+1)
+                ranker = list(score_ranker(still_valid_words,real_feedback,guess,count_score+1).items())[:10]
+         
+            else:
+                
+                print("These are the words left in the guess space:")
+                ranker = list(score_ranker(still_valid_words,real_feedback,guess,count_score+1).items())[:10]
+                
+            print(f'Word      Score')
+            for pair in ranker:
+                print(f'{pair[0]}     {pair[1]:.2f}')
         
-        print(">>> Expected entropy: " + str(entropy(guess,valid_words)))
-        print("    Actual entropy: " + str(compute_actual_entropy(valid_words,guess,real_feedback)))
-        valid_words = reduce_allowed_words(valid_words,guess,real_feedback)
-        display_score_ranker(valid_words,real_feedback,guess,i+1)
-        print(">>>> Remaining possibilities: " + str(len(valid_words)) + "\n")
-        
-        i += 1
+        sp=input('Enter "yes" if you need my support: ')
+
+if __name__ == "__main__":
+    
+    # print(solution_for_test('hence'))
+    solution_for_WordleBot()
+    solution_for_simulationgame()
+    solution_for_realgame()
+    
+    # real_possible_answers=os.path.abspath('Data/real_possible_answers.txt')
+    # with open(real_possible_answers,"r") as file:
+    #     real_possible_answers=[]
+    #     for i in file:
+    #         real_possible_answers.append(i[:5])
+    # TestModel(solution_for_test,real_possible_answers)
+    
+
+
+
 

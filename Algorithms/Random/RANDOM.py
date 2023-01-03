@@ -126,7 +126,7 @@ def solution_for_simulationgame() -> None:
         print('\n   WORDLE  ')
         print_guess_board(guess_board,feedback_board)
         guess=input(f'Enter your {attempt_number+1}th guess\n(Enter "yes" if you need my support): ').lower()
-        while guess not in allowed_guesses:
+        while guess not in still_valid_words :
             #support
             if guess =='yes':
                 print("There are",len(still_valid_words),"left in the guess space.")
@@ -204,7 +204,7 @@ def solution_for_realgame()->None:
         mm=input('(Press "Enter" to continue add more guesses or Enter "." to suggest):  ')
         while mm!=".":
             guess = input('guess: ').lower()
-            while guess not in allowed_guesses:
+            while guess not in still_valid_words:
                 guess=input('Not a valid word - Please try again: ').lower()
             feedback=input('Feedback: ')
             while len(feedback) !=5:
