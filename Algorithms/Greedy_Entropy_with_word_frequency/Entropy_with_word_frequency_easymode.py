@@ -377,8 +377,8 @@ if __name__ == "__main__":
     
     # print(solution_for_test('means'))
     # solution_for_WordleBot()
-    # solution_for_simulationgame()
-    solution_for_realgame()
+    solution_for_simulationgame()
+    # solution_for_realgame()
     
     # real_possible_answers=os.path.abspath('Data/real_possible_answers.txt')
     # with open(real_possible_answers,"r") as file:
