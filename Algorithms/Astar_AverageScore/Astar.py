@@ -8,15 +8,15 @@ from math import *
 #algorithm use property of hardmode but it both accepts word in normal or hard in game simulation and game online
 #this version is different from others
 
-
+link=os.path.abspath('Data/real_possible_answers.txt')
 #open files to get data        
-with open(r'/Users/nguyenbathiem/Desktop/wordle-project/Wordle_solver/possible_answers.txt','r') as f:
+with open(link,'r') as f:
     POSSIBLE_ANSWERS=list()
     for line in f:
         line=line.rstrip()
         POSSIBLE_ANSWERS.append(line)
-        
-with open(r'/Users/nguyenbathiem/Desktop/wordle-project/Wordle_solver/word_freq.txt','r') as f:
+linkgg=os.path.abspath('Data/word_freq_ggdict.json')
+with open(linkgg,'r') as f:
     data=f.read()
     WORD_FREQ=json.loads(data)
 
